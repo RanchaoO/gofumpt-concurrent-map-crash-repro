@@ -1,42 +1,38 @@
 gofumpt-concurrent-map-crash-repro
-Minimal reproducible example for a gofumpt crash in Docker.
 
-This repository is intentionally minimal and not production code.
+Minimal stress repro for `mvdan.cc/gofumpt@v0.9.1` on Go 1.26 (alpine, arm64 target).
 
-Summary
-Running go tool gofumpt -l -w . inside Docker crashes with:
+This repo intentionally keeps only files needed to reproduce failures in:
 
-fatal error: concurrent map read and map write
-stack traces pointing into mvdan.cc/gofumpt@v0.9.1
-The same workflow in a larger production repo fails at the same stage; this repo isolates it to a minimal setup.
+`go tool gofumpt -l -w .`
 
 Environment
-Go: 1.26.0
-gofumpt: v0.9.1
-Base image: golang:1.26-alpine
-Target: GOOS=linux, GOARCH=arm64
-Host OS: Windows (Docker Desktop)
-Reproduction
-Build with no cache:
 
-docker compose build --no-cache
-Observe failure during:
+- Go: 1.26
+- gofumpt: v0.9.1
+- Base image: golang:1.26-alpine
+- Target: GOOS=linux, GOARCH=arm64
 
-go tool gofumpt -l -w .
-Expected behavior
-gofumpt formats files and exits successfully.
+How it works
 
-Actual behavior
-gofumpt panics and exits with code 2, with stack traces such as:
+- `gen_stress.sh` generates many Go files under `stresspkg/` during Docker build.
+- Docker then runs gofumpt in multiple passes to amplify concurrency pressure.
 
-mvdan.cc/gofumpt@v0.9.1/...
-fatal error: concurrent map read and map write
-Minimal files in this repo
-main.go (tiny HTTP handler + inline cache-control middleware)
-go.mod
-Dockerfile
-docker-compose.yaml
-Notes
-No frontend build.
-No external service dependencies.
-Repro is focused only on Docker + gofumpt behavior.
+Reproduce
+
+1. `docker compose build --no-cache`
+2. Full output is saved with:
+   `docker compose build --no-cache 2>&1 | tee repro-stress.log`
+
+Tune stress level (in `docker-compose.yaml` build args)
+
+- `STRESS_FILES` (default 2000)
+- `STRESS_LOOPS` (default 40)
+
+Expected
+
+- gofumpt finishes successfully.
+
+Actual (intermittent)
+
+- gofumpt exits with code 2 and runtime/gofumpt stack traces.

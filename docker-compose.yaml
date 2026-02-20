@@ -1,0 +1,7 @@
+services:
+  repro:
+    build:
+      context: .
+      args:
+        STRESS_FILES: "2000"
+        STRESS_LOOPS: "40"
